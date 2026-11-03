@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -43,9 +46,34 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon --stacktrace
         working-directory: app
 
+      - name: Read app version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/app/build.gradle.kts)
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "versionName=$VERSION"
+
+      # 额外复制一份固定文件名，供 README 的 releases/latest 下载链接长期使用
+      - name: Add stable filename alias
+        run: cp app/app/build/outputs/apk/release/*.apk app/app/build/outputs/apk/release/gyyz-latest.apk
+
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
           name: gyyz-release-apk
           path: app/app/build/outputs/apk/release/*.apk
           retention-days: 30
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.name }}
+          name: v${{ steps.version.outputs.name }}
+          body: |
+            由 GitHub Actions 自动构建（commit ${{ github.sha }}）。
+          files: |
+            app/app/build/outputs/apk/release/gyyz-v${{ steps.version.outputs.name }}.apk
+            app/app/build/outputs/apk/release/gyyz-latest.apk
+          make_latest: true
+          fail_on_unmatched_files: true

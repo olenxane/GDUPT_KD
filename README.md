@@ -6,7 +6,9 @@
 
 拼多多 · 淘宝菜鸟 · 京东 · 顺丰 —— 身份码与快递信息一站式聚合
 
-本项目基于https://github.com/njpemo/MaShangQu-APP逆向出的接口进行二次开发，特别感谢作者“拼好饭给你”。
+**[⬇ 下载最新 APK](https://github.com/olenxane/GDUPT_KD/releases/latest/download/gyyz-latest.apk)**
+
+本项目基于 [MaShangQu-APP](https://github.com/njpemo/MaShangQu-APP) 逆向出的接口进行二次开发，特别感谢作者“拼好饭给你”。
 
 </div>
 
