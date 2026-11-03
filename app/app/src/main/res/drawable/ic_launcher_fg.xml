@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 启动图标前景：白色等距快递纸箱 + 箱面取件码标签（居中安全区内） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 箱顶面 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,30 L82,44.5 L54,59 L26,44.5 Z" />
+    <!-- 箱左侧面（略降透明度做立体层次） -->
+    <path
+        android:fillColor="#E6FFFFFF"
+        android:pathData="M26,44.5 L54,59 L54,86 L26,71.5 Z" />
+    <!-- 箱右侧面 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M82,44.5 L82,71.5 L54,86 L54,59 Z" />
+    <!-- 箱面取件码标签（绿色标签贴在白箱上） -->
+    <path
+        android:fillColor="#FF2FA05C"
+        android:pathData="M57,63.5 L77,53 L77,61 L57,71.5 Z" />
+    <!-- 标签上的三段码线（白色短横线示意 1-2-3 取件码） -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M60,64.5 L63,63 L63,65 L60,66.5 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M65,62 L68,60.5 L68,62.5 L65,64 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M70,59.5 L74,57.5 L74,59.5 L70,61.5 Z" />
+</vector>
