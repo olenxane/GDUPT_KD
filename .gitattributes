@@ -1,0 +1,2 @@
+# POSIX wrapper 脚本必须 LF，否则 Git Bash / Linux CI 解析会报错
+/app/gradlew text eol=lf
