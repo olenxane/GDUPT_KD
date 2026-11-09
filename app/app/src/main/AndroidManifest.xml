@@ -29,6 +29,12 @@
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:screenOrientation="portrait" />
+        <!-- 淘宝 iv 风控验证：与 CaptchaActivity 同为对话框式纯 View WebView 容器 -->
+        <activity
+            android:name=".ui.TbRiskCheckActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:screenOrientation="portrait" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

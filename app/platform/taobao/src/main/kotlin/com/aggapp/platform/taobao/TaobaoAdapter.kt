@@ -120,6 +120,11 @@ class TaobaoAdapter @Inject constructor() : PlatformAdapter, CredentialRefresher
     val loginCookieHeader: String
         get() = loginSession?.cookieHeader().orEmpty()
 
+    /** 协议端登录 UA（TaobaoLoginClient.LOGIN_UA）：风控 WebView 必须与其一致，
+     *  否则 htoken 绑定的环境指纹矛盾，验证页反复判环境异常（2026-11-09） */
+    val loginWebviewUa: String
+        get() = TaobaoLoginClient.LOGIN_UA
+
     /**
      * 风控/身份验证 WebView 放行后收尾：用户已在 WebView 内完成登录（页面跳到淘宝首页），
      * 把 WebView Cookie（含 cookie2/unb 等登录态，getCookie 可读 httpOnly）合并进会话存储

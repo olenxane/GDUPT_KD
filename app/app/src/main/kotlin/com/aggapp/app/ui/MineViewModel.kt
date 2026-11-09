@@ -44,6 +44,7 @@ data class MineUiState(
     val tbAccounts: List<com.aggapp.platform.taobao.TbAccountOption> = emptyList(),
     // ---- 淘宝 iv 风控页（多账号收尾命中风控时，WebView 弹窗内手动过风控）----
     val tbRiskUrl: String? = null,
+    val tbRiskUa: String? = null,                  // 协议端登录 UA（风控 WebView 必须一致）
     val tbWebviewCookies: List<Pair<String, String>> = emptyList(), // (url, setCookie串) 预置注入
 )
 
@@ -449,7 +450,7 @@ class MineViewModel @Inject constructor(
                         session.upsert(r.cred)
                         _state.value = _state.value.copy(
                             busy = false, tbAccounts = emptyList(), tbRiskUrl = null,
-                            tbWebviewCookies = emptyList(), message = "淘宝登录成功",
+                            tbRiskUa = null, tbWebviewCookies = emptyList(), message = "淘宝登录成功",
                         )
                         refreshLoginStates()
                     }
@@ -460,7 +461,7 @@ class MineViewModel @Inject constructor(
                 AppLog.e("AggApp", "taobao selectAccount failed", e)
                 _state.value = _state.value.copy(
                     busy = false, tbAccounts = emptyList(), tbRiskUrl = null,
-                    message = "账号登录失败：${e.message}（可重新发送验证码）",
+                    tbRiskUa = null, message = "账号登录失败：${e.message}（可重新发送验证码）",
                 )
             }
         }
@@ -473,7 +474,10 @@ class MineViewModel @Inject constructor(
         val header = adapter.loginCookieHeader
         val cookies = header.split("; ").filter { it.contains("=") }
             .map { "https://www.taobao.com/" to "$it; Domain=.taobao.com; Path=/" }
-        _state.value = _state.value.copy(busy = false, tbAccounts = emptyList(), tbRiskUrl = url, tbWebviewCookies = cookies)
+        _state.value = _state.value.copy(
+            busy = false, tbAccounts = emptyList(), tbRiskUrl = url,
+            tbRiskUa = adapter.loginWebviewUa, tbWebviewCookies = cookies,
+        )
     }
 
     /** 风控 WebView 检测到放行（出现 cookie2/unb 登录态 Cookie）→ 合并 Cookie 直接收尾
@@ -487,13 +491,13 @@ class MineViewModel @Inject constructor(
                 val cred = adapter.completeRiskCheck(webviewCookieHeader)
                 session.upsert(cred)
                 _state.value = _state.value.copy(
-                    busy = false, tbRiskUrl = null, tbWebviewCookies = emptyList(), message = "淘宝登录成功",
+                    busy = false, tbRiskUrl = null, tbRiskUa = null, tbWebviewCookies = emptyList(), message = "淘宝登录成功",
                 )
                 refreshLoginStates()
             } catch (e: Exception) {
                 AppLog.e("AggApp", "taobao risk check complete failed", e)
                 _state.value = _state.value.copy(
-                    busy = false, tbRiskUrl = null, tbWebviewCookies = emptyList(),
+                    busy = false, tbRiskUrl = null, tbRiskUa = null, tbWebviewCookies = emptyList(),
                     message = "淘宝登录失败：${e.message}（可重新发送验证码）",
                 )
             }
@@ -502,7 +506,7 @@ class MineViewModel @Inject constructor(
 
     /** 关闭风控 WebView 弹窗（放弃本次登录） */
     fun tbDismissRiskCheck() {
-        _state.value = _state.value.copy(tbRiskUrl = null, tbWebviewCookies = emptyList(), message = "已取消，可重新发送验证码")
+        _state.value = _state.value.copy(tbRiskUrl = null, tbRiskUa = null, tbWebviewCookies = emptyList(), message = "已取消，可重新发送验证码")
     }
 
     /** 关闭多账号选择弹窗（取消登录） */

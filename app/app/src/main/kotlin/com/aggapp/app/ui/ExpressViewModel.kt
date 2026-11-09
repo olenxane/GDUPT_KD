@@ -58,6 +58,40 @@ class ExpressViewModel @Inject constructor(
     private val adapters = registry.adapters
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /** 已确认登录态失效的凭据：fetch* 遇到 NeedRelogin 时记录，
+     *  凭据未更新前不再发请求（过期账号反复打接口会抬风控分，2026-11-09）；
+     *  Credential 是 data class，== 比较 token+extra 即可，换新凭据自动解锁 */
+    private val deadCreds = mutableMapOf<Platform, Credential>()
+
+    /** 登录态失效的凭据不再发请求；返回 null 表示该凭据已知失效（同凭据重试直接短路） */
+    private fun isCredDead(plat: Platform, cred: Credential): Boolean =
+        deadCreds[plat] == cred
+
+    /** 统一查取件码入口：失效凭据直接返回 null；NeedRelogin 记入 deadCreds 返回 null；
+     *  其他异常原样抛出由调用方处理（日志/容错逻辑不动） */
+    private suspend fun tryFetchPickupCode(plat: Platform, cred: Credential, no: String): PickupCode? {
+        if (isCredDead(plat, cred)) return null
+        return try {
+            adapters.getValue(plat).fetchPickupCode(cred, no)
+        } catch (e: com.aggapp.core.model.PlatformError.NeedRelogin) {
+            deadCreds[plat] = cred
+            AppLog.w("Express", "${plat.label} 登录态已失效，凭据更换前不再重试")
+            null
+        }
+    }
+
+    /** 统一列表拉取入口：与 tryFetchPickupCode 同一套失效凭据短路 */
+    private suspend fun tryFetchExpressList(plat: Platform, cred: Credential, page: Int): List<ExpressItem> {
+        if (isCredDead(plat, cred)) throw com.aggapp.core.model.PlatformError.NeedRelogin(plat)
+        return try {
+            adapters.getValue(plat).fetchExpressList(cred, page)
+        } catch (e: com.aggapp.core.model.PlatformError.NeedRelogin) {
+            deadCreds[plat] = cred
+            AppLog.w("Express", "${plat.label} 登录态已失效，凭据更换前不再重试")
+            throw e
+        }
+    }
+
     private val _tracked = MutableStateFlow(loadTracked())
     private val _manual = MutableStateFlow(loadManual())
 
@@ -125,7 +159,7 @@ class ExpressViewModel @Inject constructor(
                 try {
                     val items = mutableListOf<ExpressItem>()
                     for (page in 1..MAX_PAGES) {
-                        val batch = adapters.getValue(platform).fetchExpressList(cred, page)
+                        val batch = tryFetchExpressList(platform, cred, page)
                         items += batch
                         if (batch.size < PAGE_SIZE) break
                     }
@@ -172,7 +206,7 @@ class ExpressViewModel @Inject constructor(
                         Platform.PDD -> {
                             // 快递助手列表一次拿状态（含取件码），多跟踪单复用缓存
                             val list = pddListCache
-                                ?: adapters.getValue(Platform.PDD).fetchExpressList(cred, 1).also { pddListCache = it }
+                                ?: tryFetchExpressList(Platform.PDD, cred, 1).also { pddListCache = it }
                             val it2 = list.firstOrNull { it.trackingNo == no }
                             when {
                                 it2 == null || it2.status == ExpressStatus.PICKED -> trackedRemoved += no
@@ -180,7 +214,7 @@ class ExpressViewModel @Inject constructor(
                             }
                         }
                         else -> {
-                            val code = adapters.getValue(plat).fetchPickupCode(cred, no) ?: continue
+                            val code = tryFetchPickupCode(plat, cred, no) ?: continue
                             add(
                                 ExpressItem(
                                     id = no,
@@ -329,7 +363,7 @@ class ExpressViewModel @Inject constructor(
         }.distinct().filter { creds.containsKey(it) }
         for (plat in candidates) {
             val code = try {
-                adapters.getValue(plat).fetchPickupCode(creds.getValue(plat), no)
+                tryFetchPickupCode(plat, creds.getValue(plat), no)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -397,7 +431,7 @@ class ExpressViewModel @Inject constructor(
                 creds.containsKey(Platform.TAOBAO)
             if (wantCainiao) {
                 val tbCode = try {
-                    adapters.getValue(Platform.TAOBAO).fetchPickupCode(creds.getValue(Platform.TAOBAO), no)
+                    tryFetchPickupCode(Platform.TAOBAO, creds.getValue(Platform.TAOBAO), no)
                 } catch (e: Exception) {
                     AppLog.e("Express", "fillCode $no: 淘宝 fetchPickupCode 失败", e)
                     null
@@ -426,7 +460,7 @@ class ExpressViewModel @Inject constructor(
             var filled: ExpressItem? = null
             for (plat in candidates) {
                 val code = try {
-                    adapters.getValue(plat).fetchPickupCode(creds.getValue(plat), no)
+                    tryFetchPickupCode(plat, creds.getValue(plat), no)
                 } catch (e: Exception) {
                     AppLog.e("Express", "fillCode $no: ${platformLabel(plat)} fetchPickupCode 失败", e)
                     null // 单渠道失败不阻断，继续下一个
@@ -503,7 +537,7 @@ class ExpressViewModel @Inject constructor(
                         return@launch
                     }
                     val code = try {
-                        adapters.getValue(Platform.SF).fetchPickupCode(cred, no)
+                        tryFetchPickupCode(Platform.SF, cred, no)
                     } catch (e: Exception) {
                         AppLog.e("Express", "lookup $no: 顺丰 fetchPickupCode 失败", e)
                         null
@@ -527,7 +561,7 @@ class ExpressViewModel @Inject constructor(
                         val tbDef = async {
                             creds[Platform.TAOBAO]?.let { c ->
                                 try {
-                                    adapters.getValue(Platform.TAOBAO).fetchPickupCode(c, no)
+                                    tryFetchPickupCode(Platform.TAOBAO, c, no)
                                 } catch (e: Exception) {
                                     AppLog.e("Express", "lookup $no: 淘宝 fetchPickupCode 失败", e)
                                     null
@@ -537,7 +571,7 @@ class ExpressViewModel @Inject constructor(
                         val pddDef = async {
                             creds[Platform.PDD]?.let { c ->
                                 try {
-                                    adapters.getValue(Platform.PDD).fetchPickupCode(c, no)
+                                    tryFetchPickupCode(Platform.PDD, c, no)
                                 } catch (e: Exception) {
                                     AppLog.e("Express", "lookup $no: 拼多多 fetchPickupCode 失败", e)
                                     null
@@ -567,7 +601,7 @@ class ExpressViewModel @Inject constructor(
                 val tbCred = creds[Platform.TAOBAO]
                 if (tbCred != null) {
                     val code = try {
-                        adapters.getValue(Platform.TAOBAO).fetchPickupCode(tbCred, no)
+                        tryFetchPickupCode(Platform.TAOBAO, tbCred, no)
                     } catch (e: Exception) {
                         AppLog.e("Express", "lookup $no: 淘宝 fetchPickupCode 失败", e)
                         null
@@ -581,7 +615,7 @@ class ExpressViewModel @Inject constructor(
                 val pddCred = creds[Platform.PDD]
                 if (pddCred != null) {
                     val code = try {
-                        adapters.getValue(Platform.PDD).fetchPickupCode(pddCred, no)
+                        tryFetchPickupCode(Platform.PDD, pddCred, no)
                     } catch (e: Exception) {
                         AppLog.e("Express", "lookup $no: 拼多多 fetchPickupCode 失败", e)
                         null

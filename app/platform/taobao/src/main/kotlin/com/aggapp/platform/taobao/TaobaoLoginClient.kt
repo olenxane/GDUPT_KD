@@ -369,7 +369,7 @@ internal class TaobaoLoginClient(private val http: OkHttpClient) {
         return resp
     }
 
-    private companion object {
+    internal companion object {
         /**
          * 2026-09-29 真机实测：PC 入口（login.taobao.com + bizEntrance=taobao_pc）被 havana 风控
          * 判定为无指纹客户端 → resultCode 100 强制 iv 二次校验（纯协议无法过）。

@@ -15,8 +15,8 @@ android {
         minSdk = 26
         targetSdk = 34
         // 手动维护：覆盖安装时按需递增
-        versionCode = 10
-        versionName = "1.1.0"
+        versionCode = 11
+        versionName = "1.1.1"
     }
     buildToolsVersion = "34.0.0"
 

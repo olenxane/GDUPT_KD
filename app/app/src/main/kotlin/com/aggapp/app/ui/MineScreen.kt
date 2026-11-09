@@ -471,54 +471,28 @@ fun MineScreen(vm: MineViewModel = hiltViewModel()) {
                 )
             }
 
-            // 淘宝 iv 风控 WebView 弹窗（多账号收尾命中风控：用户手动过风控，
-            // 检测到登录态 Cookie（cookie2/unb）出现后自动重试协议收尾并关闭）
-            if (state.tbRiskUrl != null) {
-                // 轮询句柄：弹窗关闭/离开组合时必须在 onRelease 里清掉，否则每 1.5s 永久空转并泄漏 WebView
-                val riskHandler = remember { androidx.compose.runtime.mutableStateOf<android.os.Handler?>(null) }
-                androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { vm.tbDismissRiskCheck() },
-                    confirmButton = {
-                        TextButton(onClick = { vm.tbDismissRiskCheck() }) { Text("关闭") }
-                    },
-                    title = { Text("安全验证", Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
-                    text = {
-                        androidx.compose.ui.viewinterop.AndroidView(
-                            modifier = Modifier.fillMaxWidth().height(420.dp),
-                            factory = { ctx ->
-                                android.webkit.WebView(ctx).apply {
-                                    settings.javaScriptEnabled = true
-                                    settings.domStorageEnabled = true
-                                    settings.userAgentString = "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                                    val cm = android.webkit.CookieManager.getInstance()
-                                    cm.setAcceptCookie(true)
-                                    // 预置会话 Cookie（保持服务端上下文）
-                                    state.tbWebviewCookies.forEach { (u, c) -> cm.setCookie(u, c) }
-                                    cm.flush()
-                                    val handler = android.os.Handler(android.os.Looper.getMainLooper())
-                                    riskHandler.value = handler
-                                    val check = object : Runnable {
-                                        override fun run() {
-                                            val ck = cm.getCookie("https://www.taobao.com/") ?: ""
-                                            if (ck.contains("cookie2=") && ck.contains("unb=")) {
-                                                vm.tbRiskCheckPassed(ck)
-                                                return
-                                            }
-                                            handler.postDelayed(this, 1500)
-                                        }
-                                    }
-                                    // 只在 factory 里启动一次轮询；onPageFinished 不再重复投递，避免多路轮询叠加
-                                    loadUrl(state.tbRiskUrl!!)
-                                    handler.postDelayed(check, 3000)
-                                }
-                            },
-                            onRelease = {
-                                riskHandler.value?.removeCallbacksAndMessages(null)
-                                riskHandler.value = null
-                            },
-                        )
-                    },
-                )
+            // 淘宝 iv 风控验证（多账号/短信收尾命中 normal_validate_tpl 时拉起）：
+            // 2026-11-09 起改用 TbRiskCheckActivity（纯 View 原生 WebView）——
+            // 本设备 Compose AndroidView 内 WebView 不出帧，NC 风控 SDK 采不到渲染指纹
+            // 会永远停在「验证环境」；Activity 侧统一 LOGIN_UA 并开三方 Cookie，
+            // 检测到 cookie2/unb 后把 Cookie 头经静态回调回传给 tbRiskCheckPassed 收尾
+            state.tbRiskUrl?.let { riskUrl ->
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                LaunchedEffect(riskUrl) {
+                    TbRiskCheckActivity.onResult = { ck ->
+                        if (ck == null) vm.tbDismissRiskCheck() else vm.tbRiskCheckPassed(ck)
+                    }
+                    ctx.startActivity(
+                        android.content.Intent(ctx, TbRiskCheckActivity::class.java).apply {
+                            putExtra(TbRiskCheckActivity.EXTRA_URL, riskUrl)
+                            putExtra(TbRiskCheckActivity.EXTRA_UA, state.tbRiskUa)
+                            putStringArrayListExtra(
+                                TbRiskCheckActivity.EXTRA_COOKIES,
+                                ArrayList(state.tbWebviewCookies.map { "${it.first}\n${it.second}" }),
+                            )
+                        },
+                    )
+                }
             }
 
             // 拼多多扫码登录弹窗（二维码展示 + 保存相册 + Text 二次验证原生输码）
