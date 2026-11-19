@@ -113,9 +113,9 @@ fun MineScreen(vm: MineViewModel = hiltViewModel()) {
                 Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-            // ===== 顶部：3 平台登录态总览（顺丰登录入口有意隐藏）=====
+            // ===== 顶部：4 平台登录态总览 =====
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(Platform.PDD, Platform.TAOBAO, Platform.JD).forEach { p ->
+                listOf(Platform.PDD, Platform.TAOBAO, Platform.JD, Platform.SF).forEach { p ->
                     val ls = state.loginStates[p]
                     val selected = expanded == p
                     val accent = com.aggapp.app.ui.theme.Brand.PlatformColor[p]

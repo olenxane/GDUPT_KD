@@ -95,8 +95,7 @@ fun renderCode128(content: String, width: Int = 1000, height: Int = 300): Bitmap
 @Composable
 fun IdCodeScreen(vm: MainViewModel) {
     val state by vm.state.collectAsState()
-    // 顺丰身份码入口有意隐藏，仅展示三平台
-    val platforms = listOf(Platform.PDD, Platform.TAOBAO, Platform.JD)
+    val platforms = listOf(Platform.PDD, Platform.TAOBAO, Platform.JD, Platform.SF)
 
     var fullscreen by remember { mutableStateOf(false) }
 

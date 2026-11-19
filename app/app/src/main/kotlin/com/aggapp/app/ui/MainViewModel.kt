@@ -57,8 +57,7 @@ class MainViewModel @Inject constructor(
             if (!silent) _state.value = _state.value.copy(loading = true)
             val fetched = mutableMapOf<Platform, IdentityCode>()
             val real = mutableMapOf<Platform, Boolean>()
-            // 顺丰身份码入口有意隐藏，不在此拉取
-            for (p in listOf(Platform.PDD, Platform.TAOBAO, Platform.JD)) {
+            for (p in listOf(Platform.PDD, Platform.TAOBAO, Platform.JD, Platform.SF)) {
                 val adapter = adapters[p] ?: continue
                 val cred = credentialFor(p)
                 if (cred == null) {
